@@ -20,6 +20,7 @@ import {
   Loader2,
   RefreshCw,
   XCircle,
+  ClipboardList,
 } from "lucide-react"
 import ScrapedDataTabs from "./ScrapedDataTabs"
 
@@ -40,6 +41,8 @@ export default function OpportunityModal({
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isScraping, setIsScraping] = useState(false)
+  const [children, setChildren] = useState<Opportunity[]>([])
+  const [childrenPricing, setChildrenPricing] = useState<Record<string, { purchasePrice: number; profitMargin: number; offeredPrice: number }>>({})
 
   const [formData, setFormData] = useState({
     purchasePrice: 0,
@@ -54,6 +57,21 @@ export default function OpportunityModal({
       setError("")
       const response = await opportunitiesApi.get(opportunityId)
       setOpportunity(response.data)
+      if (response.data.childrenCount > 0) {
+        try {
+          const childRes = await opportunitiesApi.getChildren(opportunityId)
+          setChildren(childRes.data)
+          const pricing: Record<string, { purchasePrice: number; profitMargin: number; offeredPrice: number }> = {}
+          childRes.data.forEach((c: Opportunity) => {
+            pricing[c.id] = {
+              purchasePrice: Number(c.purchasePrice) || 0,
+              profitMargin: Number(c.profitMargin) || 0,
+              offeredPrice: Number(c.offeredPrice) || 0,
+            }
+          })
+          setChildrenPricing(pricing)
+        } catch {}
+      }
       setFormData({
         purchasePrice: Number(response.data.purchasePrice) || 0,
         profitMargin: Number(response.data.profitMargin) || 0,
@@ -107,17 +125,53 @@ export default function OpportunityModal({
     setFormData({ ...formData, offeredPrice: value, profitMargin })
   }
 
+  const updateChildPricing = (childId: string, field: "purchasePrice" | "profitMargin" | "offeredPrice", value: number) => {
+    setChildrenPricing((prev) => {
+      const current = prev[childId] || { purchasePrice: 0, profitMargin: 0, offeredPrice: 0 }
+      const updated = { ...current }
+      if (field === "purchasePrice") {
+        updated.purchasePrice = value
+        updated.offeredPrice = value * (1 + updated.profitMargin / 100)
+      } else if (field === "profitMargin") {
+        updated.profitMargin = value
+        updated.offeredPrice = updated.purchasePrice * (1 + value / 100)
+      } else {
+        updated.offeredPrice = value
+        updated.profitMargin = updated.purchasePrice === 0 ? 0 : ((value - updated.purchasePrice) / updated.purchasePrice) * 100
+      }
+      return { ...prev, [childId]: updated }
+    })
+  }
+
   const handleSave = async () => {
     if (!opportunity) return
     setIsSaving(true)
     try {
-      await opportunitiesApi.update(opportunityId, {
-        purchasePrice: formData.purchasePrice,
-        profitMargin: formData.profitMargin,
-        offeredPrice: formData.offeredPrice,
-        profitAmount: formData.offeredPrice - formData.purchasePrice,
-        status: formData.status,
-      })
+      // Save children pricing if parent with children
+      if (children.length > 0) {
+        await Promise.all(
+          children.map((child) => {
+            const p = childrenPricing[child.id]
+            if (!p) return Promise.resolve()
+            return opportunitiesApi.update(child.id, {
+              purchasePrice: p.purchasePrice,
+              profitMargin: p.profitMargin,
+              offeredPrice: p.offeredPrice,
+              profitAmount: p.offeredPrice - p.purchasePrice,
+            })
+          })
+        )
+        // Also update parent status
+        await opportunitiesApi.update(opportunityId, { status: formData.status })
+      } else {
+        await opportunitiesApi.update(opportunityId, {
+          purchasePrice: formData.purchasePrice,
+          profitMargin: formData.profitMargin,
+          offeredPrice: formData.offeredPrice,
+          profitAmount: formData.offeredPrice - formData.purchasePrice,
+          status: formData.status,
+        })
+      }
       await fetchOpportunity()
       setIsEditing(false)
       onUpdated()
@@ -355,9 +409,143 @@ export default function OpportunityModal({
               {/* ============================================================ */}
               {/* PRECIFICACAO - Grid de celulas */}
               {/* ============================================================ */}
+              {/* ============================================================ */}
+              {/* PRECIFICACAO - Planilha editável para children OU campos simples */}
+              {/* ============================================================ */}
               <div>
-                <SectionHeader icon={<DollarSign className="w-3.5 h-3.5" />} title="Precificacao" />
-                {isEditing ? (
+                <SectionHeader icon={<DollarSign className="w-3.5 h-3.5" />} title={
+                  children.length > 0 ? `Precificacao — ${children.length} Line Items` : "Precificacao"
+                } />
+
+                {children.length > 0 ? (
+                  /* ===== PARENT COM CHILDREN: planilha editável ===== */
+                  <div className="border border-gray-200 rounded-md overflow-hidden overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-gray-50 text-[10px] font-medium text-gray-500 uppercase">
+                          <th className="px-2 py-1.5 text-left">Item</th>
+                          <th className="px-2 py-1.5 text-left">Part #</th>
+                          <th className="px-2 py-1.5 text-right">Qty</th>
+                          <th className="px-2 py-1.5 text-right min-w-[100px]">Custo Unit.</th>
+                          <th className="px-2 py-1.5 text-right min-w-[80px]">Margem %</th>
+                          <th className="px-2 py-1.5 text-right min-w-[100px]">Ofertado Unit.</th>
+                          <th className="px-2 py-1.5 text-right">Lucro Unit.</th>
+                          <th className="px-2 py-1.5 text-right">Total Linha</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {children.map((child) => {
+                          const cp = childrenPricing[child.id] || { purchasePrice: 0, profitMargin: 0, offeredPrice: 0 }
+                          const childProfit = cp.offeredPrice - cp.purchasePrice
+                          const qty = child.quantity || 1
+                          return (
+                            <tr key={child.id} className="hover:bg-gray-50">
+                              <td className="px-2 py-1.5 font-mono text-gray-700">{child.nsn || "-"}</td>
+                              <td className="px-2 py-1.5 font-mono text-gray-700">{child.partNumber || "-"}</td>
+                              <td className="px-2 py-1.5 text-right font-medium">{qty}</td>
+                              {isEditing ? (
+                                <>
+                                  <td className="px-1 py-1">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={cp.purchasePrice}
+                                      onChange={(e) => updateChildPricing(child.id, "purchasePrice", parseFloat(e.target.value) || 0)}
+                                      className="w-full px-1.5 py-1 text-xs text-right font-medium border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                  </td>
+                                  <td className="px-1 py-1">
+                                    <input
+                                      type="number"
+                                      step="0.1"
+                                      value={Number(cp.profitMargin.toFixed(2))}
+                                      onChange={(e) => updateChildPricing(child.id, "profitMargin", parseFloat(e.target.value) || 0)}
+                                      className="w-full px-1.5 py-1 text-xs text-right font-medium border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                  </td>
+                                  <td className="px-1 py-1">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={Number(cp.offeredPrice.toFixed(2))}
+                                      onChange={(e) => updateChildPricing(child.id, "offeredPrice", parseFloat(e.target.value) || 0)}
+                                      className="w-full px-1.5 py-1 text-xs text-right font-medium border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                  </td>
+                                </>
+                              ) : (
+                                <>
+                                  <td className="px-2 py-1.5 text-right font-medium">{cp.purchasePrice ? formatCurrency(cp.purchasePrice) : "-"}</td>
+                                  <td className="px-2 py-1.5 text-right font-medium">{cp.profitMargin ? `${cp.profitMargin.toFixed(1)}%` : "-"}</td>
+                                  <td className="px-2 py-1.5 text-right font-medium">{cp.offeredPrice ? formatCurrency(cp.offeredPrice) : "-"}</td>
+                                </>
+                              )}
+                              <td className={`px-2 py-1.5 text-right font-bold ${childProfit > 0 ? "text-emerald-600" : childProfit < 0 ? "text-red-600" : "text-gray-400"}`}>
+                                {formatCurrency(childProfit)}
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-bold text-gray-900">
+                                {cp.offeredPrice ? formatCurrency(cp.offeredPrice * qty) : "-"}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-gray-50 border-t-2 border-gray-300 font-bold text-xs">
+                          <td className="px-2 py-2" colSpan={3}>TOTAL</td>
+                          <td className="px-2 py-2 text-right">
+                            {formatCurrency(children.reduce((s, c) => {
+                              const cp = childrenPricing[c.id]
+                              return s + (cp?.purchasePrice || 0) * (c.quantity || 1)
+                            }, 0))}
+                          </td>
+                          <td className="px-2 py-2"></td>
+                          <td className="px-2 py-2 text-right">
+                            {formatCurrency(children.reduce((s, c) => {
+                              const cp = childrenPricing[c.id]
+                              return s + (cp?.offeredPrice || 0) * (c.quantity || 1)
+                            }, 0))}
+                          </td>
+                          <td className={`px-2 py-2 text-right ${
+                            children.reduce((s, c) => {
+                              const cp = childrenPricing[c.id]
+                              return s + ((cp?.offeredPrice || 0) - (cp?.purchasePrice || 0)) * (c.quantity || 1)
+                            }, 0) > 0 ? "text-emerald-600" : "text-red-600"
+                          }`}>
+                            {formatCurrency(children.reduce((s, c) => {
+                              const cp = childrenPricing[c.id]
+                              return s + ((cp?.offeredPrice || 0) - (cp?.purchasePrice || 0)) * (c.quantity || 1)
+                            }, 0))}
+                          </td>
+                          <td className="px-2 py-2 text-right text-gray-900">
+                            {formatCurrency(children.reduce((s, c) => {
+                              const cp = childrenPricing[c.id]
+                              return s + (cp?.offeredPrice || 0) * (c.quantity || 1)
+                            }, 0))}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                    {isEditing && (
+                      <div className="px-3 py-1.5 bg-blue-50 border-t border-blue-100 flex items-center justify-between">
+                        <span className="text-[10px] text-blue-600">Edite os valores diretamente na tabela. Clique Salvar para gravar todos.</span>
+                        <div className="flex items-center gap-2">
+                          <label className="text-[10px] text-gray-500">Status:</label>
+                          <select
+                            value={formData.status}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                            className="px-2 py-0.5 text-[11px] border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          >
+                            {Object.entries(STATUS_LABELS).map(([key, label]) => (
+                              <option key={key} value={key}>{label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : isEditing ? (
+                  /* ===== SEM CHILDREN: formulário simples de edição ===== */
                   <div className="border border-gray-200 rounded-md overflow-hidden">
                     <div className="grid grid-cols-5 divide-x divide-gray-200">
                       <div className="px-3 py-2">
@@ -411,6 +599,7 @@ export default function OpportunityModal({
                     </div>
                   </div>
                 ) : (
+                  /* ===== SEM CHILDREN: visualização simples ===== */
                   <div className="border border-gray-200 rounded-md overflow-hidden">
                     <div className="grid grid-cols-4 divide-x divide-gray-200">
                       <PriceCell label="Preco Compra" value={formatCurrency(opportunity.purchasePrice)} />
@@ -419,11 +608,8 @@ export default function OpportunityModal({
                         value={opportunity.profitMargin ? `${Number(opportunity.profitMargin).toFixed(2)}%` : "-"}
                         highlight={
                           opportunity.profitMargin
-                            ? Number(opportunity.profitMargin) >= 20
-                              ? "emerald"
-                              : Number(opportunity.profitMargin) >= 10
-                              ? "amber"
-                              : "red"
+                            ? Number(opportunity.profitMargin) >= 20 ? "emerald"
+                              : Number(opportunity.profitMargin) >= 10 ? "amber" : "red"
                             : undefined
                         }
                       />
@@ -433,9 +619,7 @@ export default function OpportunityModal({
                         value={formatCurrency(opportunity.profitAmount)}
                         highlight={
                           opportunity.profitAmount
-                            ? Number(opportunity.profitAmount) > 0
-                              ? "emerald"
-                              : "red"
+                            ? Number(opportunity.profitAmount) > 0 ? "emerald" : "red"
                             : undefined
                         }
                       />

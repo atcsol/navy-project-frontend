@@ -445,12 +445,64 @@ export default function OpportunityDetailsPage() {
           Precificação
         </h3>
 
-        {isEditing ? (
+        {/* Parent with children: show consolidated totals */}
+        {opportunity.childrenCount > 0 && children.length > 0 ? (
+          <div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+              <div>
+                <label className="text-sm font-medium text-gray-500">
+                  Total de Compra
+                </label>
+                <div className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(
+                    children.reduce((sum, c) => sum + (c.purchasePrice || 0) * (c.quantity || 1), 0)
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">
+                  Total Ofertado
+                </label>
+                <div className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(
+                    children.reduce((sum, c) => sum + (c.offeredPrice || 0) * (c.quantity || 1), 0)
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">
+                  Lucro Total
+                </label>
+                <div
+                  className={`text-2xl font-bold ${
+                    children.reduce((sum, c) => sum + (c.profitAmount || 0) * (c.quantity || 1), 0) > 0
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {formatCurrency(
+                    children.reduce((sum, c) => sum + (c.profitAmount || 0) * (c.quantity || 1), 0)
+                  )}
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mt-3">
+              Valores consolidados dos {children.length} line items. Edite os preços em cada item individualmente.
+            </p>
+          </div>
+        ) : isEditing ? (
           <div className="space-y-4">
+            {opportunity.quantity != null && opportunity.quantity > 0 && (
+              <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-600">
+                Quantidade: <span className="font-semibold text-gray-900">{opportunity.quantity}</span>
+                {opportunity.unit && <span className="ml-1">({opportunity.unit})</span>}
+                <span className="ml-2 text-gray-400">— preços abaixo são por unidade</span>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Preço de Compra
+                  {opportunity.parentOpportunityId ? "Preço Unit. de Compra" : "Preço de Compra"}
                 </label>
                 <input
                   type="number"
@@ -478,7 +530,7 @@ export default function OpportunityDetailsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Preço Ofertado
+                  {opportunity.parentOpportunityId ? "Preço Unit. Ofertado" : "Preço Ofertado"}
                 </label>
                 <input
                   type="number"
@@ -495,7 +547,7 @@ export default function OpportunityDetailsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Lucro Estimado
+                  Lucro Estimado {opportunity.quantity && opportunity.quantity > 1 ? "(unitário)" : ""}
                 </label>
                 <div
                   className={`text-2xl font-bold ${
@@ -504,6 +556,14 @@ export default function OpportunityDetailsPage() {
                 >
                   {formatCurrency(profitAmount)}
                 </div>
+                {opportunity.quantity != null && opportunity.quantity > 1 && (
+                  <div className="text-sm text-gray-500 mt-1">
+                    Total: {formatCurrency(formData.offeredPrice * opportunity.quantity)}
+                    <span className="text-xs text-gray-400 ml-1">
+                      ({formatCurrency(formData.offeredPrice)} × {opportunity.quantity})
+                    </span>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -528,47 +588,78 @@ export default function OpportunityDetailsPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div>
-              <label className="text-sm font-medium text-gray-500">
-                Preço de Compra
-              </label>
-              <div className="text-2xl font-bold text-gray-900">
-                {formatCurrency(opportunity.purchasePrice)}
+          <div>
+            {opportunity.quantity != null && opportunity.quantity > 0 && opportunity.parentOpportunityId && (
+              <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-600 mb-4">
+                Quantidade: <span className="font-semibold text-gray-900">{opportunity.quantity}</span>
+                {opportunity.unit && <span className="ml-1">({opportunity.unit})</span>}
+              </div>
+            )}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div>
+                <label className="text-sm font-medium text-gray-500">
+                  {opportunity.parentOpportunityId ? "Preço Unit. de Compra" : "Preço de Compra"}
+                </label>
+                <div className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(opportunity.purchasePrice)}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">
+                  Margem de Lucro
+                </label>
+                <div className="text-2xl font-bold text-gray-900">
+                  {opportunity.profitMargin
+                    ? `${Number(opportunity.profitMargin).toFixed(2)}%`
+                    : "-"}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">
+                  {opportunity.parentOpportunityId ? "Preço Unit. Ofertado" : "Preço Ofertado"}
+                </label>
+                <div className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(opportunity.offeredPrice)}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">
+                  Lucro Estimado
+                </label>
+                <div
+                  className={`text-2xl font-bold ${
+                    (opportunity.profitAmount || 0) > 0
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {formatCurrency(opportunity.profitAmount || 0)}
+                </div>
               </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">
-                Margem de Lucro
-              </label>
-              <div className="text-2xl font-bold text-gray-900">
-                {opportunity.profitMargin
-                  ? `${Number(opportunity.profitMargin).toFixed(2)}%`
-                  : "-"}
+            {opportunity.quantity != null && opportunity.quantity > 1 && opportunity.offeredPrice != null && opportunity.offeredPrice > 0 && (
+              <div className="mt-4 pt-3 border-t border-gray-100">
+                <div className="flex items-center gap-6">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Preço Total</label>
+                    <div className="text-xl font-bold text-gray-900">
+                      {formatCurrency(opportunity.offeredPrice * opportunity.quantity)}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {formatCurrency(opportunity.offeredPrice)} × {opportunity.quantity}
+                    </div>
+                  </div>
+                  {opportunity.profitAmount != null && opportunity.profitAmount !== 0 && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Lucro Total</label>
+                      <div className={`text-xl font-bold ${opportunity.profitAmount > 0 ? "text-green-600" : "text-red-600"}`}>
+                        {formatCurrency(opportunity.profitAmount * opportunity.quantity)}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">
-                Preço Ofertado
-              </label>
-              <div className="text-2xl font-bold text-gray-900">
-                {formatCurrency(opportunity.offeredPrice)}
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500">
-                Lucro Estimado
-              </label>
-              <div
-                className={`text-2xl font-bold ${
-                  (opportunity.profitAmount || 0) > 0
-                    ? "text-green-600"
-                    : "text-red-600"
-                }`}
-              >
-                {formatCurrency(opportunity.profitAmount || 0)}
-              </div>
-            </div>
+            )}
           </div>
         )}
       </Card>
@@ -750,6 +841,9 @@ export default function OpportunityDetailsPage() {
                     <th className="pb-2 pr-3">Descricao</th>
                     <th className="pb-2 pr-3 text-right">Qty</th>
                     <th className="pb-2 pr-3">Unit</th>
+                    <th className="pb-2 pr-3 text-right">Preço Unit.</th>
+                    <th className="pb-2 pr-3 text-right">Ofertado</th>
+                    <th className="pb-2 pr-3 text-right">Total</th>
                     <th className="pb-2 pr-3">Status</th>
                   </tr>
                 </thead>
@@ -766,6 +860,11 @@ export default function OpportunityDetailsPage() {
                       <td className="py-2 pr-3 text-xs text-gray-700 max-w-[200px] truncate">{child.description || "-"}</td>
                       <td className="py-2 pr-3 text-xs text-right font-medium">{child.quantity ?? "-"}</td>
                       <td className="py-2 pr-3 text-xs text-gray-500">{child.unit || "-"}</td>
+                      <td className="py-2 pr-3 text-xs text-right font-medium">{child.purchasePrice ? formatCurrency(child.purchasePrice) : "-"}</td>
+                      <td className="py-2 pr-3 text-xs text-right font-medium">{child.offeredPrice ? formatCurrency(child.offeredPrice) : "-"}</td>
+                      <td className="py-2 pr-3 text-xs text-right font-medium">
+                        {child.offeredPrice ? formatCurrency(child.offeredPrice * (child.quantity || 1)) : "-"}
+                      </td>
                       <td className="py-2 pr-3">
                         <Badge variant="default" size="sm">{child.status}</Badge>
                       </td>
