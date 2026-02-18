@@ -1,0 +1,35 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    image: "${COOLIFY_CONTAINER_NAME:-navy-frontend}:${COMMIT_SHA:-latest}"
+    restart: unless-stopped
+    expose:
+      - "3000"
+    env_file:
+      - path: .env
+        required: false
+    networks:
+      - coolify
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.navy-gzip.compress=true
+      - traefik.http.middlewares.navy-redirect-frontend-https.redirectscheme.scheme=https
+      - traefik.http.middlewares.navy-redirect-frontend-https.redirectscheme.permanent=true
+      - traefik.http.routers.navy-frontend-http.entryPoints=http
+      - traefik.http.routers.navy-frontend-http.rule=Host(`navy.atcsol.us`)
+      - traefik.http.routers.navy-frontend-http.middlewares=navy-redirect-frontend-https
+      - traefik.http.routers.navy-frontend-https.entryPoints=https
+      - traefik.http.routers.navy-frontend-https.rule=Host(`navy.atcsol.us`)
+      - traefik.http.routers.navy-frontend-https.tls=true
+      - traefik.http.routers.navy-frontend-https.tls.certresolver=letsencrypt
+      - traefik.http.routers.navy-frontend-https.middlewares=navy-gzip
+      - traefik.http.routers.navy-frontend-https.service=navy-frontend
+      - traefik.http.services.navy-frontend.loadbalancer.server.port=3000
+
+networks:
+  coolify:
+    external: true
