@@ -4,10 +4,17 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002/api"
 
 export const api = axios.create({
   baseURL: API_URL,
+  timeout: 15000,
   headers: {
     "Content-Type": "application/json",
   },
 })
+
+// Callback para toast global — setado pelo ToastProvider
+let globalToastError: ((msg: string) => void) | null = null
+export function setGlobalToastError(fn: ((msg: string) => void) | null) {
+  globalToastError = fn
+}
 
 let isRefreshing = false
 let failedQueue: Array<{
@@ -78,7 +85,9 @@ api.interceptors.response.use(
           refreshToken,
         })
 
-        const { accessToken, refreshToken: newRefreshToken } = response.data
+        // Backend retorna { success, data: { accessToken, refreshToken, user }, timestamp }
+        const responseData = response.data?.data ?? response.data
+        const { accessToken, refreshToken: newRefreshToken } = responseData
 
         localStorage.setItem("token", accessToken)
         localStorage.setItem("refreshToken", newRefreshToken)
@@ -99,6 +108,22 @@ api.interceptors.response.use(
         window.location.href = "/login"
 
         return Promise.reject(refreshError)
+      }
+    }
+
+    // Toast global para erros de rede, timeout, 500, 403
+    if (globalToastError) {
+      if (!error.response) {
+        // Network error ou timeout
+        if (error.code === "ECONNABORTED") {
+          globalToastError("Servidor demorou para responder. Tente novamente.")
+        } else {
+          globalToastError("Sem conexão com o servidor. Verifique sua internet.")
+        }
+      } else if (error.response.status === 500) {
+        globalToastError("Erro interno do servidor. Tente novamente.")
+      } else if (error.response.status === 403) {
+        globalToastError("Sem permissão para esta ação.")
       }
     }
 

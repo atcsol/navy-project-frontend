@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
+import { getHttpErrorMessage, isNetworkError } from "@/lib/error-utils"
 import { Button, ErrorBanner } from "@/components/ui"
 
 export default function LoginPage() {
@@ -21,8 +22,13 @@ export default function LoginPage() {
     try {
       await login(email, password)
       router.push("/")
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao fazer login")
+    } catch (err: unknown) {
+      if (isNetworkError(err)) {
+        setError("Servidor indisponível. Verifique sua conexão e tente novamente.")
+      } else {
+        const msg = getHttpErrorMessage(err)
+        setError(msg === "Credenciais inválidas" ? "Email ou senha incorretos" : msg)
+      }
     } finally {
       setLoading(false)
     }
@@ -57,7 +63,7 @@ export default function LoginPage() {
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setError("") }}
               />
             </div>
             <div>
@@ -73,7 +79,7 @@ export default function LoginPage() {
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Senha"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => { setPassword(e.target.value); setError("") }}
               />
             </div>
           </div>

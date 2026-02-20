@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthRedirect } from "@/hooks/useAuthRedirect"
 import { templatesApi, gmailApi, Template, SyncJobStatus } from "@/lib/api"
+import { getErrorMessage } from "@/lib/error-utils"
 import SyncProgressPanel from "@/components/SyncProgressPanel"
 import { PageShell, PageHeader, ErrorBanner, LoadingCard, EmptyState, Button, Badge, Card } from "@/components/ui"
 import {
@@ -43,8 +44,8 @@ export default function TemplatesPage() {
       setError("")
       const response = await templatesApi.list()
       setTemplates(response.data)
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao carregar templates")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao carregar templates"))
     } finally {
       setLoading(false)
     }
@@ -129,8 +130,8 @@ export default function TemplatesPage() {
       setSyncJobIds(jobIds)
       setSyncTemplateName(templateName)
       startPolling(jobIds)
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao iniciar sincronização")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao iniciar sincronização"))
       setSyncingTemplateId(null)
     }
   }
@@ -154,8 +155,8 @@ export default function TemplatesPage() {
           t.id === id ? { ...t, isActive: !currentStatus } : t
         )
       )
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao atualizar template")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao atualizar template"))
     }
   }
 
@@ -165,8 +166,8 @@ export default function TemplatesPage() {
     try {
       await templatesApi.delete(id)
       setTemplates((prev) => prev.filter((t) => t.id !== id))
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao excluir template")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao excluir template"))
     }
   }
 

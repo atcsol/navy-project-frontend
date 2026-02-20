@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthRedirect } from "@/hooks/useAuthRedirect"
 import { gmailApi, SyncJobStatus } from "@/lib/api"
+import { getErrorMessage } from "@/lib/error-utils"
 import SyncProgressPanel from "@/components/SyncProgressPanel"
 import { PageShell, PageHeader, ErrorBanner, LoadingCard, EmptyState, Button, Badge, Card } from "@/components/ui"
 import {
@@ -49,8 +50,8 @@ export default function GmailAccountsPage() {
       setError("")
       const response = await gmailApi.accounts()
       setAccounts(response.data)
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao carregar contas Gmail")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao carregar contas Gmail"))
     } finally {
       setLoading(false)
     }
@@ -136,8 +137,8 @@ export default function GmailAccountsPage() {
           acc.id === id ? { ...acc, isActive: !currentStatus } : acc
         )
       )
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao atualizar conta")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao atualizar conta"))
     }
   }
 
@@ -155,10 +156,8 @@ export default function GmailAccountsPage() {
 
       setSyncJobId(jobId)
       startPolling(jobId)
-    } catch (err: any) {
-      setError(
-        err.response?.data?.message || "Erro ao iniciar sincronização"
-      )
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao iniciar sincronização"))
     } finally {
       setSyncingAccountIds((prev) => {
         const next = new Set(prev)
@@ -183,8 +182,8 @@ export default function GmailAccountsPage() {
     try {
       await gmailApi.remove(id)
       setAccounts((prev) => prev.filter((acc) => acc.id !== id))
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao remover conta")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao remover conta"))
     }
   }
 

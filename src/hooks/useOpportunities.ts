@@ -13,6 +13,7 @@ import {
 } from "@/lib/api"
 import ExcelJS from "exceljs"
 import { saveAs } from "file-saver"
+import { getErrorMessage } from "@/lib/error-utils"
 import { useWebSocket } from "@/hooks/useWebSocket"
 import { WorkflowStatus } from "@/components/dashboard/StatusTabs"
 
@@ -214,8 +215,8 @@ export function useOpportunities({ user }: UseOpportunitiesOptions): UseOpportun
       await scrapingApi.enqueue(rescrape)
       setScrapingPolling(true)
       await fetchScrapingProgress()
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao iniciar scraping")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao iniciar scraping"))
     } finally {
       setScrapingLoading(false)
     }
@@ -229,8 +230,8 @@ export function useOpportunities({ user }: UseOpportunitiesOptions): UseOpportun
         setScrapingPolling(true)
       }
       await fetchScrapingProgress()
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao re-tentar scraping")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao re-tentar scraping"))
     } finally {
       setScrapingLoading(false)
     }
@@ -241,8 +242,8 @@ export function useOpportunities({ user }: UseOpportunitiesOptions): UseOpportun
     try {
       await scrapingApi.pause()
       await fetchScrapingProgress()
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao pausar scraping")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao pausar scraping"))
     } finally {
       setScrapingLoading(false)
     }
@@ -254,8 +255,8 @@ export function useOpportunities({ user }: UseOpportunitiesOptions): UseOpportun
       await scrapingApi.resume()
       setScrapingPolling(true)
       await fetchScrapingProgress()
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao retomar scraping")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao retomar scraping"))
     } finally {
       setScrapingLoading(false)
     }
@@ -267,8 +268,8 @@ export function useOpportunities({ user }: UseOpportunitiesOptions): UseOpportun
       await scrapingApi.cancel()
       setScrapingPolling(false)
       await fetchScrapingProgress()
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao cancelar scraping")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao cancelar scraping"))
     } finally {
       setScrapingLoading(false)
     }
@@ -280,8 +281,8 @@ export function useOpportunities({ user }: UseOpportunitiesOptions): UseOpportun
       await scrapingApi.drain()
       setScrapingPolling(false)
       await fetchScrapingProgress()
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao limpar fila")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao limpar fila"))
     } finally {
       setScrapingLoading(false)
     }
@@ -311,8 +312,8 @@ export function useOpportunities({ user }: UseOpportunitiesOptions): UseOpportun
       setOpportunities(response.data.data)
       setTotalPages(response.data.meta.totalPages)
       setTotal(response.data.meta.total)
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao carregar oportunidades")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao carregar oportunidades"))
     } finally {
       setLoading(false)
     }
@@ -374,8 +375,8 @@ export function useOpportunities({ user }: UseOpportunitiesOptions): UseOpportun
     try {
       await opportunitiesApi.transitionStatus(id, toStatus)
       await refreshAll()
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao alterar status")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao alterar status"))
     } finally {
       setActionLoadingId(null)
     }
@@ -386,8 +387,8 @@ export function useOpportunities({ user }: UseOpportunitiesOptions): UseOpportun
     try {
       await opportunitiesApi.updateQuotationPhase(id, phase)
       await refreshAll()
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao alterar fase")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao alterar fase"))
     } finally {
       setActionLoadingId(null)
     }
@@ -420,8 +421,8 @@ export function useOpportunities({ user }: UseOpportunitiesOptions): UseOpportun
       )
       setSelectedIds([])
       await refreshAll()
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao executar acao em massa")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao executar ação em massa"))
     } finally {
       setBulkActionLoading(false)
     }
@@ -509,8 +510,8 @@ export function useOpportunities({ user }: UseOpportunitiesOptions): UseOpportun
       const filename = `${prefix}_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}.xlsx`
 
       saveAs(new Blob([buffer]), filename)
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao exportar para Excel")
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Erro ao exportar para Excel"))
     }
   }
 
