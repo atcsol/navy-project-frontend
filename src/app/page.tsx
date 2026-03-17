@@ -7,8 +7,6 @@ import Navigation from "@/components/Navigation"
 import { StatusTabs, OpportunitiesFilters, ScrapingPanel, BulkActions, OpportunitiesTable, Pagination } from "@/components/dashboard"
 import { ErrorBanner } from "@/components/ui"
 import {
-  Wifi,
-  WifiOff,
   Loader2,
 } from "lucide-react"
 
@@ -42,17 +40,7 @@ export default function OpportunitiesPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* HEADER */}
-      <Navigation
-        rightContent={
-          <div className="flex items-center gap-1.5" title={hook.wsConnected ? "Conectado em tempo real" : "Desconectado"}>
-            {hook.wsConnected ? (
-              <Wifi className="w-3.5 h-3.5 text-emerald-500" />
-            ) : (
-              <WifiOff className="w-3.5 h-3.5 text-gray-300" />
-            )}
-          </div>
-        }
-      />
+      <Navigation />
 
       {/* MAIN CONTENT */}
       <main className="w-full px-4 sm:px-6 lg:px-8 py-5">

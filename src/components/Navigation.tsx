@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import PermissionGate from "@/components/PermissionGate"
 import AlertsBell from "@/components/AlertsBell"
+import { useWebSocket } from "@/hooks/useWebSocket"
 import {
   Anchor,
   LayoutDashboard,
@@ -16,6 +17,8 @@ import {
   FileSpreadsheet,
   Globe,
   Settings,
+  Wifi,
+  WifiOff,
 } from "lucide-react"
 
 interface NavigationProps {
@@ -32,6 +35,7 @@ export default function Navigation({ rightContent }: NavigationProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuth()
+  const { connected: wsConnected } = useWebSocket()
 
   if (!user) return null
 
@@ -150,6 +154,13 @@ export default function Navigation({ rightContent }: NavigationProps) {
           {/* Right side */}
           <div className="flex items-center gap-3">
             {rightContent}
+            <div className="flex items-center gap-1.5" title={wsConnected ? "Conectado em tempo real" : "Desconectado"}>
+              {wsConnected ? (
+                <Wifi className="w-3.5 h-3.5 text-emerald-500" />
+              ) : (
+                <WifiOff className="w-3.5 h-3.5 text-gray-300" />
+              )}
+            </div>
             <AlertsBell />
 
             <div className="h-5 w-px bg-gray-200" />
