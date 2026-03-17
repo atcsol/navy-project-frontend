@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from "react"
 import { io, Socket } from "socket.io-client"
 
-const WS_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace("/api", "") + "/ws"
+const WS_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace("/api", "")
 
 interface UseWebSocketOptions {
   onAlert?: (alert: any) => void
@@ -23,9 +23,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     const token = localStorage.getItem("token")
     if (!token) return
 
-    const socket = io(WS_URL, {
+    const socket = io(WS_BASE + "/ws", {
       query: { token },
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
       reconnection: true,
       reconnectionDelay: 2000,
       reconnectionAttempts: 10,
