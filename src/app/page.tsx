@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { useAuthRedirect, useOpportunities } from "@/hooks"
 import OpportunityModal from "@/components/OpportunityModal"
-import AlertsBell from "@/components/AlertsBell"
 import Navigation from "@/components/Navigation"
 import { StatusTabs, OpportunitiesFilters, ScrapingPanel, BulkActions, OpportunitiesTable, Pagination } from "@/components/dashboard"
 import { ErrorBanner } from "@/components/ui"
@@ -45,16 +44,13 @@ export default function OpportunitiesPage() {
       {/* HEADER */}
       <Navigation
         rightContent={
-          <>
-            <div className="flex items-center gap-1.5" title={hook.wsConnected ? "Conectado em tempo real" : "Desconectado"}>
-              {hook.wsConnected ? (
-                <Wifi className="w-3.5 h-3.5 text-emerald-500" />
-              ) : (
-                <WifiOff className="w-3.5 h-3.5 text-gray-300" />
-              )}
-            </div>
-            <AlertsBell externalCount={hook.wsAlertCount} />
-          </>
+          <div className="flex items-center gap-1.5" title={hook.wsConnected ? "Conectado em tempo real" : "Desconectado"}>
+            {hook.wsConnected ? (
+              <Wifi className="w-3.5 h-3.5 text-emerald-500" />
+            ) : (
+              <WifiOff className="w-3.5 h-3.5 text-gray-300" />
+            )}
+          </div>
         }
       />
 

@@ -3,6 +3,7 @@
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import PermissionGate from "@/components/PermissionGate"
+import AlertsBell from "@/components/AlertsBell"
 import {
   Anchor,
   LayoutDashboard,
@@ -149,6 +150,7 @@ export default function Navigation({ rightContent }: NavigationProps) {
           {/* Right side */}
           <div className="flex items-center gap-3">
             {rightContent}
+            <AlertsBell />
 
             <div className="h-5 w-px bg-gray-200" />
 
