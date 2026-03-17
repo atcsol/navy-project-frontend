@@ -462,6 +462,25 @@ export const emailSyncApi = {
     api.put<EmailSyncSettings>("/email-sync/settings", data),
 }
 
+// Sync Log types
+export interface SyncLog {
+  id: string
+  queue: string
+  jobId: string | null
+  status: string
+  gmailAccountId: string | null
+  templateId: string | null
+  durationMs: number | null
+  error: string | null
+  metadata: Record<string, unknown> | null
+  createdAt: string
+}
+
+export const syncLogsApi = {
+  getLogs: (params?: { queue?: string; status?: string; page?: number; limit?: number }) =>
+    api.get<PaginatedResponse<SyncLog>>("/queues/sync/logs", { params }),
+}
+
 // Scraping Settings & Domain types
 export interface ScrapingSettings {
   id: string
