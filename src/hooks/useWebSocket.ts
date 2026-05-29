@@ -3,7 +3,10 @@
 import { useEffect, useRef, useCallback, useState } from "react"
 import { io, Socket } from "socket.io-client"
 
-const WS_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace("/api", "")
+// Remove APENAS o sufixo "/api" do final da URL. NÃO usar .replace("/api","")
+// porque isso remove a primeira ocorrência — em produção o host é "api.navy..."
+// e o "//api" do subdomínio seria mutilado, gerando host inválido (ERR_NAME_NOT_RESOLVED).
+const WS_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002/api").replace(/\/api\/?$/, "")
 
 interface UseWebSocketOptions {
   onAlert?: (alert: any) => void

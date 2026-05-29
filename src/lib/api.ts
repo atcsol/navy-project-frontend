@@ -269,6 +269,23 @@ export const opportunitiesApi = {
     purchaseStatus?: string
   }) => api.get<PaginatedResponse<Opportunity>>("/opportunities", { params }),
 
+  // Export: traz TODAS as oportunidades dos filtros (sem o teto de 100 da listagem)
+  export: (params?: {
+    status?: string
+    site?: string
+    templateId?: string
+    search?: string
+    closingBefore?: string
+    closingAfter?: string
+    includeExpired?: string
+    quotationPhase?: string
+    purchaseStatus?: string
+  }) =>
+    api.get<{
+      data: Opportunity[]
+      meta: { total: number; returned: number; capped: boolean; maxRows: number }
+    }>("/opportunities/export", { params }),
+
   get: (id: string) => api.get<Opportunity>(`/opportunities/${id}`),
 
   getChildren: (id: string) => api.get<Opportunity[]>(`/opportunities/${id}/children`),

@@ -1,9 +1,10 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import { Template, QUOTATION_PHASE_LABELS } from "@/lib/api"
 import { Button } from "@/components/ui"
 import { WorkflowStatus } from "./StatusTabs"
+import ExportModal from "./ExportModal"
 import { Search, Filter, Download } from "lucide-react"
 
 // ---------------------------------------------------------------------------
@@ -22,7 +23,7 @@ interface OpportunitiesFiltersProps {
   templates: Template[]
   total: number
   activeTab: WorkflowStatus
-  onExport: () => void
+  onExport: (selectedColumnKeys?: string[]) => void
 }
 
 export default function OpportunitiesFilters({
@@ -39,6 +40,8 @@ export default function OpportunitiesFilters({
   activeTab,
   onExport,
 }: OpportunitiesFiltersProps) {
+  const [exportOpen, setExportOpen] = useState(false)
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm px-4 py-3 mb-4">
       <div className="flex items-center gap-3 flex-wrap">
@@ -99,13 +102,23 @@ export default function OpportunitiesFilters({
           <Button
             size="sm"
             icon={Download}
-            onClick={onExport}
+            onClick={() => setExportOpen(true)}
             className="text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100"
           >
             Excel
           </Button>
         </div>
       </div>
+
+      <ExportModal
+        open={exportOpen}
+        total={total}
+        onClose={() => setExportOpen(false)}
+        onConfirm={(keys) => {
+          setExportOpen(false)
+          onExport(keys)
+        }}
+      />
     </div>
   )
 }

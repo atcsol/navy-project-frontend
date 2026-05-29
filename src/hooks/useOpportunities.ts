@@ -18,6 +18,50 @@ import { useWebSocket } from "@/hooks/useWebSocket"
 import { WorkflowStatus } from "@/components/dashboard/StatusTabs"
 
 // ---------------------------------------------------------------------------
+// Colunas de export (seleção detalhada no modal)
+// ---------------------------------------------------------------------------
+
+export interface ExportColumnDef {
+  key: string
+  header: string
+  width: number
+}
+
+/** Todas as colunas disponíveis para exportar. O usuário escolhe quais incluir. */
+export const EXPORT_COLUMNS: ExportColumnDef[] = [
+  { key: "solicitationNumber", header: "Solicitacao", width: 18 },
+  { key: "site", header: "Site", width: 12 },
+  { key: "description", header: "Descricao", width: 40 },
+  { key: "nsn", header: "NSN", width: 15 },
+  { key: "partNumber", header: "Part Number", width: 15 },
+  { key: "manufacturer", header: "CAGE/Fabricante", width: 16 },
+  { key: "condition", header: "Condicao", width: 10 },
+  { key: "unit", header: "Unidade", width: 10 },
+  { key: "quantity", header: "Qtd", width: 8 },
+  { key: "purchasePrice", header: "Preco Compra", width: 13 },
+  { key: "profitMargin", header: "Margem %", width: 10 },
+  { key: "offeredPrice", header: "Preco Ofertado", width: 14 },
+  { key: "profitAmount", header: "Lucro", width: 12 },
+  { key: "wonPrice", header: "Preco Won", width: 12 },
+  { key: "bidPrice", header: "Preco BID", width: 12 },
+  { key: "closingDate", header: "Data Fechamento", width: 15 },
+  { key: "deliveryDate", header: "Data Entrega", width: 15 },
+  { key: "urgencyLevel", header: "Urgencia", width: 10 },
+  { key: "status", header: "Status", width: 15 },
+  { key: "quotationPhase", header: "Fase Cotacao", width: 14 },
+  { key: "purchaseStatus", header: "Status Compra", width: 14 },
+  { key: "supplierName", header: "Fornecedor", width: 18 },
+  { key: "sourceUrl", header: "URL Origem", width: 35 },
+]
+
+/** Colunas marcadas por padrão ao abrir o modal de export */
+export const DEFAULT_EXPORT_COLUMNS = [
+  "solicitationNumber", "site", "description", "nsn", "partNumber",
+  "purchasePrice", "profitMargin", "offeredPrice", "profitAmount",
+  "closingDate", "urgencyLevel", "status",
+]
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -87,8 +131,8 @@ interface UseOpportunitiesReturn {
   wsConnected: boolean
   wsAlertCount: number | undefined
 
-  // Excel export
-  handleExportToExcel: () => Promise<void>
+  // Excel export — recebe as chaves de coluna escolhidas no modal (opcional)
+  handleExportToExcel: (selectedColumnKeys?: string[]) => Promise<void>
 
   // Refresh
   refreshOpportunities: () => Promise<void>
@@ -432,11 +476,10 @@ export function useOpportunities({ user }: UseOpportunitiesOptions): UseOpportun
   // Export to Excel
   // ---------------------------------------------------------------------------
 
-  const handleExportToExcel = async () => {
+  const handleExportToExcel = async (selectedColumnKeys?: string[]) => {
     try {
-      const response = await opportunitiesApi.list({
-        page: 1,
-        limit: 10000,
+      // Busca TODAS as oportunidades dos filtros atuais (endpoint export, sem teto de 100)
+      const response = await opportunitiesApi.export({
         status: activeTab,
         site: siteFilter || undefined,
         search: searchFilter || undefined,
@@ -446,27 +489,25 @@ export function useOpportunities({ user }: UseOpportunitiesOptions): UseOpportun
       })
 
       const allOpportunities = response.data.data
+      const meta = response.data.meta
+      if (meta?.capped) {
+        setError(
+          `Export limitado a ${meta.maxRows} registros (havia ${meta.total}). Refine os filtros para exportar o restante.`,
+        )
+      }
+
+      // Colunas: as escolhidas no modal, ou o conjunto padrão
+      const keys = selectedColumnKeys && selectedColumnKeys.length > 0
+        ? selectedColumnKeys
+        : DEFAULT_EXPORT_COLUMNS
+      const chosen = EXPORT_COLUMNS.filter((c) => keys.includes(c.key))
+
       const workbook = new ExcelJS.Workbook()
       const selectedTemplate = templates.find((t) => t.id === templateFilter)
       const sheetName = selectedTemplate ? selectedTemplate.name : STATUS_LABELS[activeTab] || "Oportunidades"
       const worksheet = workbook.addWorksheet(sheetName.substring(0, 31))
 
-      const columns = [
-        { header: "Solicitacao", key: "solicitationNumber", width: 15 },
-        { header: "Site", key: "site", width: 12 },
-        { header: "Descricao", key: "description", width: 40 },
-        { header: "NSN", key: "nsn", width: 15 },
-        { header: "Part Number", key: "partNumber", width: 15 },
-        { header: "Preco Compra", key: "purchasePrice", width: 12 },
-        { header: "Margem %", key: "profitMargin", width: 10 },
-        { header: "Preco Ofertado", key: "offeredPrice", width: 12 },
-        { header: "Lucro", key: "profitAmount", width: 12 },
-        { header: "Data Fechamento", key: "closingDate", width: 15 },
-        { header: "Urgencia", key: "urgencyLevel", width: 10 },
-        { header: "Status", key: "status", width: 15 },
-      ]
-
-      worksheet.columns = columns
+      worksheet.columns = chosen.map((c) => ({ header: c.header, key: c.key, width: c.width }))
 
       const urgencyLabels: Record<string, string> = {
         critical: "Critica",
@@ -476,23 +517,30 @@ export function useOpportunities({ user }: UseOpportunitiesOptions): UseOpportun
         expired: "Expirada",
       }
 
+      // Formata o valor de cada coluna por chave
+      const fmt = (opp: Opportunity, key: string): string | number => {
+        switch (key) {
+          case "purchasePrice": return opp.purchasePrice || 0
+          case "offeredPrice": return opp.offeredPrice || 0
+          case "profitAmount": return opp.profitAmount || 0
+          case "wonPrice": return opp.wonPrice || 0
+          case "bidPrice": return (opp as any).bidPrice || 0
+          case "quantity": return opp.quantity ?? 0
+          case "profitMargin": return opp.profitMargin ? `${opp.profitMargin}%` : "-"
+          case "closingDate":
+            return opp.closingDate ? new Date(opp.closingDate).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "-"
+          case "deliveryDate":
+            return (opp as any).deliveryDate ? new Date((opp as any).deliveryDate).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "-"
+          case "urgencyLevel": return urgencyLabels[opp.urgencyLevel || ""] || "-"
+          case "status": return STATUS_LABELS[opp.status] || opp.status
+          default: return ((opp as any)[key] ?? "-") as string | number
+        }
+      }
+
       for (const opp of allOpportunities) {
-        worksheet.addRow({
-          solicitationNumber: opp.solicitationNumber || "-",
-          site: opp.site || "-",
-          description: opp.description || "-",
-          nsn: opp.nsn || "-",
-          partNumber: opp.partNumber || "-",
-          purchasePrice: opp.purchasePrice || 0,
-          profitMargin: opp.profitMargin ? `${opp.profitMargin}%` : "-",
-          offeredPrice: opp.offeredPrice || 0,
-          profitAmount: opp.profitAmount || 0,
-          closingDate: opp.closingDate
-            ? new Date(opp.closingDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })
-            : "-",
-          urgencyLevel: urgencyLabels[opp.urgencyLevel || ""] || "-",
-          status: STATUS_LABELS[opp.status] || opp.status,
-        })
+        const row: Record<string, string | number> = {}
+        for (const c of chosen) row[c.key] = fmt(opp, c.key)
+        worksheet.addRow(row)
       }
 
       worksheet.getRow(1).font = { bold: true }
